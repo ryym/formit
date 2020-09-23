@@ -1,11 +1,8 @@
 import { FieldPath, ObjectFieldPath, PathPiece, createFieldPath } from './fieldPath';
 import { dig } from './dig';
 
-export type AnyValues = Record<string, unknown>;
-
 export interface FormitOptions<Vals extends AnyValues> {
   readonly initialValues: Vals;
-  readonly onValueChange?: OnValueChange;
 }
 
 export class Formit<Vals extends AnyValues> {
@@ -14,7 +11,7 @@ export class Formit<Vals extends AnyValues> {
   private _values: Vals;
   private readonly _dirtinesses: Map<string, boolean>;
   private readonly _changeHandlers: Map<string, ChangeHandler>;
-  private readonly _onValueChange: OnValueChange;
+  private _valueChangeListeners: OnValueChange[];
 
   constructor(options: FormitOptions<Vals>) {
     this._values = options.initialValues;
@@ -22,7 +19,7 @@ export class Formit<Vals extends AnyValues> {
 
     this._dirtinesses = new Map();
     this._changeHandlers = new Map();
-    this._onValueChange = options.onValueChange || (() => {});
+    this._valueChangeListeners = [];
   }
 
   values = (): Vals => {
@@ -38,7 +35,9 @@ export class Formit<Vals extends AnyValues> {
     const oldValue = this.value(fieldPath);
     const path = FieldPath.pathOf(fieldPath);
     this._values = updateValue(this._values, value, path, 0) as Vals;
-    this._onValueChange(fieldPath, { oldValue, newValue: value });
+
+    const listenerParams: OnValueChangeParams<T> = { oldValue, newValue: value };
+    this._valueChangeListeners.forEach((f) => f(fieldPath, listenerParams));
   };
 
   isDirty = (fieldPath: FieldPath<unknown>): boolean => {
@@ -60,7 +59,18 @@ export class Formit<Vals extends AnyValues> {
     }
     return handler;
   };
+
+  onValueChange = (listener: OnValueChange): Unsubscribe => {
+    this._valueChangeListeners.push(listener);
+    return () => {
+      this._valueChangeListeners = this._valueChangeListeners.filter((l) => l !== listener);
+    };
+  };
 }
+
+export type AnyValues = Record<string, unknown>;
+
+export type Unsubscribe = () => void;
 
 type Indexable = { [key: string]: unknown };
 
