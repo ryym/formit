@@ -1,15 +1,15 @@
-import { FieldPath, PathPiece, createFieldPath } from './fieldPath';
+import { FieldPath, ObjectFieldPath, PathPiece, createFieldPath } from './fieldPath';
 import { dig } from './dig';
 
 export type AnyValues = Record<string, unknown>;
 
 export interface FormitOptions<Vals extends AnyValues> {
-  readonly values: Vals;
+  readonly initialValues: Vals;
   readonly onValueChange?: OnValueChange;
 }
 
 export class Formit<Vals extends AnyValues> {
-  readonly fields: FieldPath<Vals>;
+  readonly fields: ObjectFieldPath<Vals>;
 
   private _values: Vals;
   private readonly _dirtinesses: Map<string, boolean>;
@@ -17,12 +17,17 @@ export class Formit<Vals extends AnyValues> {
   private readonly _onValueChange: OnValueChange;
 
   constructor(options: FormitOptions<Vals>) {
+    this._values = options.initialValues;
     this.fields = createFieldPath(() => this._values);
-    this._values = options.values;
+
     this._dirtinesses = new Map();
     this._changeHandlers = new Map();
     this._onValueChange = options.onValueChange || (() => {});
   }
+
+  values = (): Vals => {
+    return this._values;
+  };
 
   value = <T>(fieldPath: FieldPath<T>): T => {
     const path = FieldPath.pathOf(fieldPath);
