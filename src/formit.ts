@@ -3,9 +3,26 @@ import { dig } from './dig';
 
 export interface FormitOptions<Vals extends AnyValues> {
   readonly initialValues: Vals;
+  readonly onValueChange?: OnValueChange;
 }
 
-export class Formit<Vals extends AnyValues> {
+export interface Formit<Vals extends AnyValues> {
+  readonly fields: ObjectFieldPath<Vals>;
+  values(): Vals;
+  value<T>(fieldPath: FieldPath<T>): T;
+  setValue<T>(fieldPath: FieldPath<T>, value: T): void;
+  isEdited(fieldPath: FieldPath<unknown>): boolean;
+  handleChange(fieldPath: FieldPath<unknown>): ChangeHandler;
+  onValueChange(listener: OnValueChange): Unsubscribe;
+}
+
+export const createFormit = <Vals extends AnyValues>(
+  options: FormitOptions<Vals>
+): Formit<Vals> => {
+  return new BasicFormit(options);
+};
+
+export class BasicFormit<Vals extends AnyValues> implements Formit<Vals> {
   readonly fields: ObjectFieldPath<Vals>;
 
   private _values: Vals;
@@ -20,6 +37,10 @@ export class Formit<Vals extends AnyValues> {
     this._dirtinesses = new Map();
     this._changeHandlers = new Map();
     this._valueChangeListeners = [];
+
+    if (options.onValueChange != null) {
+      this._valueChangeListeners.push(options.onValueChange);
+    }
   }
 
   values = (): Vals => {
@@ -35,16 +56,17 @@ export class Formit<Vals extends AnyValues> {
     const oldValue = this.value(fieldPath);
     const path = FieldPath.pathOf(fieldPath);
     this._values = updateValue(this._values, value, path, 0) as Vals;
+    this.setEdited(fieldPath, true);
 
     const listenerParams: OnValueChangeParams<T> = { oldValue, newValue: value };
     this._valueChangeListeners.forEach((f) => f(fieldPath, listenerParams));
   };
 
-  isDirty = (fieldPath: FieldPath<unknown>): boolean => {
+  isEdited = (fieldPath: FieldPath<unknown>): boolean => {
     return this._dirtinesses.get(FieldPath.nameOf(fieldPath)) || false;
   };
 
-  setDirty = (fieldPath: FieldPath<unknown>, dirty: boolean): void => {
+  setEdited = (fieldPath: FieldPath<unknown>, dirty: boolean): void => {
     this._dirtinesses.set(FieldPath.nameOf(fieldPath), dirty);
   };
 
@@ -68,7 +90,8 @@ export class Formit<Vals extends AnyValues> {
   };
 }
 
-export type AnyValues = Record<string, unknown>;
+// How can we declare a type for an arbitrary object?
+export type AnyValues = any; // Record<string, unknown>;
 
 export type Unsubscribe = () => void;
 
