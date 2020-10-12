@@ -113,7 +113,7 @@ const updateValue = (values: unknown, value: unknown, path: PathPiece[], idx: nu
     }
     return {
       ...values,
-      [path[0]]: updateValue((values as Indexable)[path[0]], value, path, idx + 1),
+      [path[idx]]: updateValue((values as Indexable)[path[idx]], value, path, idx + 1),
     };
   } else {
     throw new Error('[formit] [BUG] unreachable error thrown');
