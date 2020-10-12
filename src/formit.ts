@@ -3,7 +3,8 @@ import { dig } from './dig';
 
 export interface FormitOptions<Vals extends AnyValues> {
   readonly initialValues: Vals;
-  readonly onValueChange?: OnValueChange;
+  readonly onValueChange?: OnValueChange<Vals>;
+  readonly onSubmit?: OnSubmit<Vals>;
 }
 
 export interface Formit<Vals extends AnyValues> {
@@ -13,7 +14,9 @@ export interface Formit<Vals extends AnyValues> {
   setValue<T>(fieldPath: FieldPath<T>, value: T): void;
   isEdited(fieldPath: FieldPath<unknown>): boolean;
   handleChange(fieldPath: FieldPath<unknown>): ChangeHandler;
-  onValueChange(listener: OnValueChange): Unsubscribe;
+  onValueChange(listener: OnValueChange<Vals>): Unsubscribe;
+  handleSubmit(event: unknown): void;
+  submitCount(): number;
 }
 
 export const createFormit = <Vals extends AnyValues>(
@@ -28,7 +31,10 @@ export class BasicFormit<Vals extends AnyValues> implements Formit<Vals> {
   private _values: Vals;
   private readonly _dirtinesses: Map<string, boolean>;
   private readonly _changeHandlers: Map<string, ChangeHandler>;
-  private _valueChangeListeners: OnValueChange[];
+  private _valueChangeListeners: OnValueChange<Vals>[];
+
+  private _submitCount = 0;
+  private readonly _onSubmit: OnSubmit<Vals>;
 
   constructor(options: FormitOptions<Vals>) {
     this._values = options.initialValues;
@@ -37,6 +43,8 @@ export class BasicFormit<Vals extends AnyValues> implements Formit<Vals> {
     this._dirtinesses = new Map();
     this._changeHandlers = new Map();
     this._valueChangeListeners = [];
+
+    this._onSubmit = options.onSubmit ?? (() => {});
 
     if (options.onValueChange != null) {
       this._valueChangeListeners.push(options.onValueChange);
@@ -58,7 +66,11 @@ export class BasicFormit<Vals extends AnyValues> implements Formit<Vals> {
     this._values = updateValue(this._values, value, path, 0) as Vals;
     this.setEdited(fieldPath, true);
 
-    const listenerParams: OnValueChangeParams<T> = { oldValue, newValue: value };
+    const listenerParams: OnValueChangeParams<T, Vals> = {
+      oldValue,
+      newValue: value,
+      formit: this,
+    };
     this._valueChangeListeners.forEach((f) => f(fieldPath, listenerParams));
   };
 
@@ -75,18 +87,28 @@ export class BasicFormit<Vals extends AnyValues> implements Formit<Vals> {
     let handler = this._changeHandlers.get(key);
     if (handler === undefined) {
       handler = (event) => {
-        this.setValue(fieldPath, event.currentTarget.value);
+        this.setValue(fieldPath, event.target.value);
       };
       this._changeHandlers.set(key, handler);
     }
     return handler;
   };
 
-  onValueChange = (listener: OnValueChange): Unsubscribe => {
+  onValueChange = (listener: OnValueChange<Vals>): Unsubscribe => {
     this._valueChangeListeners.push(listener);
     return () => {
       this._valueChangeListeners = this._valueChangeListeners.filter((l) => l !== listener);
     };
+  };
+
+  handleSubmit = (event: unknown): void => {
+    (event as any).preventDefault();
+    this._submitCount += 1;
+    this._onSubmit(this);
+  };
+
+  submitCount = (): number => {
+    return this._submitCount;
   };
 }
 
@@ -120,14 +142,20 @@ const updateValue = (values: unknown, value: unknown, path: PathPiece[], idx: nu
   }
 };
 
-export type OnValueChangeParams<T> = {
+export type OnValueChangeParams<T, Vals extends AnyValues> = {
   readonly oldValue: T;
   readonly newValue: T;
+  readonly formit: Formit<Vals>;
 };
 
-export type OnValueChange = <T>(changedField: FieldPath<T>, params: OnValueChangeParams<T>) => void;
+export type OnValueChange<Vals extends AnyValues> = <T>(
+  changedField: FieldPath<T>,
+  params: OnValueChangeParams<T, Vals>
+) => void;
+
+export type OnSubmit<Vals extends AnyValues> = (formit: Formit<Vals>) => void;
 
 export type EventLike = {
-  currentTarget: { value: unknown };
+  target: { value: unknown };
 };
 export type ChangeHandler = (event: EventLike) => void;
