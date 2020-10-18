@@ -115,7 +115,7 @@ const buildObjectPath = (
     (objectPath as any)[key] = buildAnyFieldPath(
       rootRef,
       value[key as keyof typeof value],
-      `${name}.${key}`,
+      name === '' ? key : `${name}.${key}`,
       [...path, key]
     );
   }
