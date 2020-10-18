@@ -90,7 +90,7 @@ export class BasicFormit<Vals extends AnyValues> implements Formit<Vals> {
         if ('value' in event) {
           this.setValue(fieldPath, event.value);
         } else {
-          this.setValue(fieldPath, event.currentTarget.value);
+          this.setValue(fieldPath, event.target.value);
         }
       };
       this._changeHandlers.set(key, handler);
@@ -160,6 +160,6 @@ export type OnValueChange<Vals extends AnyValues> = <T>(
 export type OnSubmit<Vals extends AnyValues> = (formit: Formit<Vals>) => void;
 
 export type EventLike = {
-  currentTarget: { value: unknown };
+  target: { value: unknown };
 };
 export type ChangeHandler = (event: EventLike | { value: unknown }) => void;
